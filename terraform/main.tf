@@ -193,7 +193,7 @@ resource "aws_api_gateway_integration" "post_integration" {
   resource_id                   = aws_api_gateway_rest_api.users.id
   http_method                   = aws_api_gateway_method.get.http_method
   integration_http_method       = "POST"
-  type                          = "AWS_PROXY
+  type                          = "AWS_PROXY"
   integration_uri               = aws_lambda_function.create_user.invoke_arn
 }
 
@@ -202,7 +202,7 @@ resource "aws_api_gateway_integration" "get_integration" {
   resource_id                   = aws_api_gateway_rest_api.users.id
   http_method                   = aws_api_gateway_method.get.http_method
   integration_http_method       = "POST"
-  type                          = "AWS_PROXY
+  type                          = "AWS_PROXY"
   integration_uri               = aws_lambda_function.get_user.invoke_arn
 }
 
@@ -221,8 +221,8 @@ resource "aws_api_gateway_rest_api_route" "get_user_route" {
 
 resource "aws_api_gateway_rest_api_stage" "default_stage" {
   rest_api_id      = aws_api_gateway_rest_api.http_users.id
-  name        = "$default"
-  auto_deploy = true
+  name             = "$default"
+  auto_deploy      = true
 }
 
 resource "aws_lambda_permission" "apigw_permission" {
