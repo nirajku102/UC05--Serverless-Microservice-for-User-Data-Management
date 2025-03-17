@@ -207,13 +207,13 @@ resource "aws_api_gateway_integration" "get_integration" {
 }
 
 
-resource "aws_api_gateway_rest_api_route" "default_route" {
+resource "aws_api_gateway_rest_api_route" "create_user_route" {
   rest_api_id    = aws_api_gateway_rest_api.users.id
   route_key = "$default"
   target    = "integrations/${aws_api_gateway_integration.post_integration.id}"
 }
 
-resource "aws_api_gateway_rest_api_route" "default_route" {
+resource "aws_api_gateway_rest_api_route" "get_user_route" {
   rest_api_id    = aws_api_gateway_rest_api.users.id
   route_key = "$default"
   target    = "integrations/${aws_api_gateway_integration.get_integration.id}"
@@ -233,7 +233,7 @@ resource "aws_lambda_permission" "apigw_permission" {
   source_arn    = "${aws_api_gateway_rest_api.http_api.execution_arn}/*/*"
 }
 
-resource "aws_lambda_permission" "apigw_permission" {
+resource "aws_lambda_permission" "apigww_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.get_user.function_name
