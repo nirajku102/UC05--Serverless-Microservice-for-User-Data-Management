@@ -38,8 +38,6 @@ resource "aws_iam_role" "github_actions_role" {
   })
 }
 
-
-
 # Attach Policies to the IAM Role
 resource "aws_iam_role_policy_attachment" "github_actions_ecr" {
   role       = aws_iam_role.github_actions_role.name
@@ -51,12 +49,12 @@ resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess" # Adjust this to least privilege
 }
 
-resource "aws_dynamodb_table" "ddbtable" {
+resource "aws_dynamodb_table" "users" {
   name             = "myDB"
   hash_key         = "id"
-  billing_mode   = "PROVISIONED"
-  read_capacity  = 5
-  write_capacity = 5
+  billing_mode     = "PROVISIONED"
+  read_capacity    = 5
+  write_capacity   = 5
   attribute {
     name = "id"
     type = "S"
@@ -132,7 +130,6 @@ resource "aws_lambda_function" "get_user" {
   environment {
     variables = {
       USERS_TABLE = aws_dynamodb_table.users.name
-  
     }
   }
 
@@ -162,67 +159,42 @@ resource "aws_security_group" "lambda_sg" {
   }
 }
 
-resource "aws_api_gateway_rest_api" "users_api" {
+resource "aws_apigatewayv2_api" "users_api" {
   name          = "UsersAPI"
   protocol_type = "HTTP"
-  description = "User management API"
+  description   = "User management API"
 }
 
-resource "aws_api_gateway_resource" "users" {
-  rest_api_id = aws_api_gateway_rest_api.users_api.id
-  parent_id   = aws_api_gateway_rest_api.users_api.id
-  path_part   = "users"
+resource "aws_apigatewayv2_route" "create_user_route" {
+  api_id    = aws_apigatewayv2_api.users_api.id
+  route_key = "POST /users"
+  target    = "integrations/${aws_apigatewayv2_integration.post_integration.id}"
 }
 
-resource "aws_api_gateway_method" "POST" {
-  rest_api_id = aws_api_gateway_rest_api.users_api.id
-  resource_id = aws_api_gateway_resource.users.id
-  http_method = "POST"
-  authorization = "NONE"
+resource "aws_apigatewayv2_route" "get_user_route" {
+  api_id    = aws_apigatewayv2_api.users_api.id
+  route_key = "GET /users"
+  target    = "integrations/${aws_apigatewayv2_integration.get_integration.id}"
 }
 
-resource "aws_api_gateway_method" "get" {
-  rest_api_id = aws_api_gateway_rest_api.users_api.id
-  resource_id = aws_api_gateway_resource.users.id
-  http_method = "GET"
-  authorization = "NONE"
+resource "aws_apigatewayv2_stage" "default_stage" {
+  api_id      = aws_apigatewayv2_api.users_api.id
+  name        = "$default"
+  auto_deploy = true
 }
 
-resource "aws_api_gateway_integration" "post_integration" {
-  rest_api_id                   = aws_api_gateway_rest_api.users_api.id
-  resource_id                   = aws_api_gateway_rest_api.users.id
-  http_method                   = aws_api_gateway_method.get.http_method
-  integration_http_method       = "POST"
-  type                          = "AWS_PROXY"
-  integration_uri               = aws_lambda_function.create_user.invoke_arn
+resource "aws_apigatewayv2_integration" "post_integration" {
+  api_id             = aws_apigatewayv2_api.users_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.create_user.invoke_arn
+  integration_method = "POST"
 }
 
-resource "aws_api_gateway_integration" "get_integration" {
-  rest_api_id                   = aws_api_gateway_rest_api.users_api.id
-  resource_id                   = aws_api_gateway_rest_api.users.id
-  http_method                   = aws_api_gateway_method.get.http_method
-  integration_http_method       = "POST"
-  type                          = "AWS_PROXY"
-  integration_uri               = aws_lambda_function.get_user.invoke_arn
-}
-
-
-resource "aws_api_gateway_rest_api_route" "create_user_route" {
-  rest_api_id    = aws_api_gateway_rest_api.users.id
-  route_key = "$default"
-  target    = "integrations/${aws_api_gateway_integration.post_integration.id}"
-}
-
-resource "aws_api_gateway_rest_api_route" "get_user_route" {
-  rest_api_id    = aws_api_gateway_rest_api.users.id
-  route_key = "$default"
-  target    = "integrations/${aws_api_gateway_integration.get_integration.id}"
-}
-
-resource "aws_api_gateway_rest_api_stage" "default_stage" {
-  rest_api_id      = aws_api_gateway_rest_api.http_users.id
-  name             = "$default"
-  auto_deploy      = true
+resource "aws_apigatewayv2_integration" "get_integration" {
+  api_id             = aws_apigatewayv2_api.users_api.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = aws_lambda_function.get_user.invoke_arn
+  integration_method = "POST"
 }
 
 resource "aws_lambda_permission" "apigw_permission" {
@@ -230,7 +202,7 @@ resource "aws_lambda_permission" "apigw_permission" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.create_user.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.http_api.execution_arn}/*/*"
+  source_arn    = "${aws_apigatewayv2_api.users_api.execution_arn}/*/*"
 }
 
 resource "aws_lambda_permission" "apigww_permission" {
@@ -238,5 +210,5 @@ resource "aws_lambda_permission" "apigww_permission" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.get_user.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.http_api.execution_arn}/*/*"
+  source_arn    = "${aws_apigatewayv2_api.users_api.execution_arn}/*/*"
 }
