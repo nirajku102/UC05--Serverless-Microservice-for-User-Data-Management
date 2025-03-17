@@ -71,11 +71,6 @@ module "vpc" {
   availability_zones = var.availability_zones
 }
 
-# Single ECR Repository for the Lambda Function
-resource "aws_ecr_repository" "user_lambda" {
-  name = "user-lambda"
-}
-
 # IAM Role for Lambda Execution
 resource "aws_iam_role" "lambda_exec" {
   name = "user_lambda_exec_role"
