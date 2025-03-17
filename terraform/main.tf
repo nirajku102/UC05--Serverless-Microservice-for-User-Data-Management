@@ -49,6 +49,7 @@ resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess" # Adjust this to least privilege
 }
 
+# DynamoDB Table
 resource "aws_dynamodb_table" "users" {
   name             = "myDB"
   hash_key         = "id"
@@ -61,6 +62,7 @@ resource "aws_dynamodb_table" "users" {
   }
 }
 
+# VPC Module
 module "vpc" {
   source = "./modules/vpc"
   vpc_cidr = var.vpc_cidr
@@ -69,16 +71,14 @@ module "vpc" {
   availability_zones = var.availability_zones
 }
 
-resource "aws_ecr_repository" "create_user" {
-  name = "create-user-lambda"
+# Single ECR Repository for the Lambda Function
+resource "aws_ecr_repository" "user_lambda" {
+  name = "user-lambda"
 }
 
-resource "aws_ecr_repository" "get_user" {
-  name = "get-user-lambda"
-}
-
+# IAM Role for Lambda Execution
 resource "aws_iam_role" "lambda_exec" {
-  name = "hello_world_lambda_exec_role"
+  name = "user_lambda_exec_role"
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
@@ -94,35 +94,21 @@ resource "aws_iam_role" "lambda_exec" {
 EOF
 }
 
+# Attach Basic Execution Role to Lambda
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Attach VPC Access Role to Lambda
 resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-resource "aws_lambda_function" "create_user" {
-  function_name = "create_user"
-  package_type  = "Image"
-  image_uri     = var.image_uri
-  role          = aws_iam_role.lambda_exec.arn
-
-  environment {
-    variables = {
-      USERS_TABLE = aws_dynamodb_table.users.name
-    }
-  }
-  vpc_config {
-    subnet_ids         = module.vpc.private_subnets
-    security_group_ids = [aws_security_group.lambda_sg.id]
-  }
-}
-
-resource "aws_lambda_function" "get_user" {
-  function_name = "get_user"
+# Single Lambda Function
+resource "aws_lambda_function" "user_lambda" {
+  function_name = "user_lambda"
   package_type  = "Image"
   image_uri     = var.image_uri
   role          = aws_iam_role.lambda_exec.arn
@@ -139,6 +125,7 @@ resource "aws_lambda_function" "get_user" {
   }
 }
 
+# Security Group for Lambda
 resource "aws_security_group" "lambda_sg" {
   name        = "lambda_sg"
   description = "Security group for Lambda function"
@@ -159,56 +146,47 @@ resource "aws_security_group" "lambda_sg" {
   }
 }
 
+# API Gateway
 resource "aws_apigatewayv2_api" "users_api" {
   name          = "UsersAPI"
   protocol_type = "HTTP"
   description   = "User management API"
 }
 
+# POST /users Route
 resource "aws_apigatewayv2_route" "create_user_route" {
   api_id    = aws_apigatewayv2_api.users_api.id
   route_key = "POST /users"
-  target    = "integrations/${aws_apigatewayv2_integration.post_integration.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.user_integration.id}"
 }
 
+# GET /users Route
 resource "aws_apigatewayv2_route" "get_user_route" {
   api_id    = aws_apigatewayv2_api.users_api.id
   route_key = "GET /users"
-  target    = "integrations/${aws_apigatewayv2_integration.get_integration.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.user_integration.id}"
 }
 
+# API Gateway Stage
 resource "aws_apigatewayv2_stage" "default_stage" {
   api_id      = aws_apigatewayv2_api.users_api.id
   name        = "$default"
   auto_deploy = true
 }
 
-resource "aws_apigatewayv2_integration" "post_integration" {
+# API Gateway Integration
+resource "aws_apigatewayv2_integration" "user_integration" {
   api_id             = aws_apigatewayv2_api.users_api.id
   integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.create_user.invoke_arn
+  integration_uri    = aws_lambda_function.user_lambda.invoke_arn
   integration_method = "POST"
 }
 
-resource "aws_apigatewayv2_integration" "get_integration" {
-  api_id             = aws_apigatewayv2_api.users_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.get_user.invoke_arn
-  integration_method = "POST"
-}
-
+# Lambda Permission for API Gateway
 resource "aws_lambda_permission" "apigw_permission" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.create_user.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.users_api.execution_arn}/*/*"
-}
-
-resource "aws_lambda_permission" "apigww_permission" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.get_user.function_name
+  function_name = aws_lambda_function.user_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.users_api.execution_arn}/*/*"
 }
