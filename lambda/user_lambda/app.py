@@ -32,7 +32,7 @@ def create_user(event):
     user_id = str(uuid.uuid4())
 
     item = {
-        'user_id': user_id,
+        'id': user_id,  # Changed from 'user_id' to 'id'
         'name': user_data['name'],
         'email': user_data['email']
     }
