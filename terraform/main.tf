@@ -177,15 +177,15 @@ resource "aws_api_gateway_resource" "users" {
 resource "aws_api_gateway_method" "POST" {
   rest_api_id = aws_api_gateway_rest_api.users_api.id
   resource_id = aws_api_gateway_resource.users.id
-  http_method = "POST
-  authorization = " NONE"
+  http_method = "POST"
+  authorization = "NONE"
 }
 
 resource "aws_api_gateway_method" "get" {
   rest_api_id = aws_api_gateway_rest_api.users_api.id
   resource_id = aws_api_gateway_resource.users.id
-  http_method = "GET
-  authorization = " NONE"
+  http_method = "GET"
+  authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "post_integration" {
