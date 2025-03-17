@@ -39,12 +39,21 @@ jobs:
       - name: Generate Unique Image Tag
         run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
-      - name: Build and Push Docker Image for app
+      - name: Build and Push Docker Image for create_user
         run: |
-          cd app/
+          cd lambda/create_user
           docker build -t app:$IMAGE_TAG .
           docker tag app:$IMAGE_TAG $ECR_REPO_APP:$IMAGE_TAG
           docker push $ECR_REPO_APP:$IMAGE_TAG
+
+      - name: Build and Push Docker Image for get_user
+        run: |
+          cd lambda/get_user
+          docker build -t app:$IMAGE_TAG .
+          docker tag app:$IMAGE_TAG $ECR_REPO_APP:$IMAGE_TAG
+          docker push $ECR_REPO_APP:$IMAGE_TAG
+
+      
 
 
       - name: Run Terraform Apply with dev.tfvars and Image URIs
