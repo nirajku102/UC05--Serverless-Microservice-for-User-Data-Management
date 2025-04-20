@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    bucket         = "world-hello-bucket"
+    bucket         = "user-data-management-bucket"
     key            = "terraform"
-    region         = "eu-west-2"
+    region         = "eu-north-1"
     encrypt        = true
   }
 }
